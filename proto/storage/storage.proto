@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package storage;
+option go_package="./storagepb";
+
+service StorageService {
+    rpc Upload(stream UploadReq) returns (UploadResp){};
+}
+
+message UploadReq {
+    string mime = 1;
+    bytes chunk = 2;
+}
+
+message UploadResp {
+    string name = 1;
+}
+
