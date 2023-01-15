@@ -80,10 +80,8 @@ func main() {
 	}
 
 	readClient := storagepb.NewStorageServiceClient(readConn)
-	defer func() {
-		conn.Close()
-		readConn.Close()
-	}()
+	defer readConn.Close()
+
 
 	res, err := readClient.GetAllFiles(ctx, &emptypb.Empty{})
 	if err != nil {
