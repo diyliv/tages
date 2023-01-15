@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	storagepb "github.com/diyliv/tages/proto/storage"
 )
@@ -16,9 +17,10 @@ type upload struct {
 	clientpb storagepb.StorageServiceClient
 }
 
-func NewUpload(logger *zap.Logger) *upload {
+func NewUpload(conn grpc.ClientConnInterface, logger *zap.Logger) *upload {
 	return &upload{
-		logger: logger,
+		logger:   logger,
+		clientpb: storagepb.NewStorageServiceClient(conn),
 	}
 }
 
@@ -42,15 +44,15 @@ func (u *upload) Upload(ctx context.Context, file string) (string, error) {
 
 	for {
 		num, err := userFile.Read(buf)
-		if err == io.EOF {
-			break
-		}
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			u.logger.Error("Error while reading data: " + err.Error())
 			return "", err
 		}
 
-		if err := stream.Send(&storagepb.UploadReq{Chunk: buf[:num]}); err != nil {
+		if err := stream.Send(&storagepb.UploadReq{Name: file, Chunk: buf[:num]}); err != nil {
 			u.logger.Error("Error while sending file chunks: " + err.Error())
 			return "", err
 		}
@@ -62,6 +64,6 @@ func (u *upload) Upload(ctx context.Context, file string) (string, error) {
 		return "", err
 	}
 
-	return res.GetName(), nil
+	return res.GetStatus(), nil
 
 }

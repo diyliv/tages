@@ -8,6 +8,7 @@ package storagepb
 
 import (
 	context "context"
+	empty "github.com/golang/protobuf/ptypes/empty"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -23,6 +24,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StorageServiceClient interface {
 	Upload(ctx context.Context, opts ...grpc.CallOption) (StorageService_UploadClient, error)
+	GetAllFiles(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetAllFilesResp, error)
+	SendFiles(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (StorageService_SendFilesClient, error)
 }
 
 type storageServiceClient struct {
@@ -67,11 +70,54 @@ func (x *storageServiceUploadClient) CloseAndRecv() (*UploadResp, error) {
 	return m, nil
 }
 
+func (c *storageServiceClient) GetAllFiles(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetAllFilesResp, error) {
+	out := new(GetAllFilesResp)
+	err := c.cc.Invoke(ctx, "/storage.StorageService/GetAllFiles", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *storageServiceClient) SendFiles(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (StorageService_SendFilesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &StorageService_ServiceDesc.Streams[1], "/storage.StorageService/SendFiles", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &storageServiceSendFilesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type StorageService_SendFilesClient interface {
+	Recv() (*SendFilesResp, error)
+	grpc.ClientStream
+}
+
+type storageServiceSendFilesClient struct {
+	grpc.ClientStream
+}
+
+func (x *storageServiceSendFilesClient) Recv() (*SendFilesResp, error) {
+	m := new(SendFilesResp)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // StorageServiceServer is the server API for StorageService service.
 // All implementations should embed UnimplementedStorageServiceServer
 // for forward compatibility
 type StorageServiceServer interface {
 	Upload(StorageService_UploadServer) error
+	GetAllFiles(context.Context, *empty.Empty) (*GetAllFilesResp, error)
+	SendFiles(*empty.Empty, StorageService_SendFilesServer) error
 }
 
 // UnimplementedStorageServiceServer should be embedded to have forward compatible implementations.
@@ -80,6 +126,12 @@ type UnimplementedStorageServiceServer struct {
 
 func (UnimplementedStorageServiceServer) Upload(StorageService_UploadServer) error {
 	return status.Errorf(codes.Unimplemented, "method Upload not implemented")
+}
+func (UnimplementedStorageServiceServer) GetAllFiles(context.Context, *empty.Empty) (*GetAllFilesResp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAllFiles not implemented")
+}
+func (UnimplementedStorageServiceServer) SendFiles(*empty.Empty, StorageService_SendFilesServer) error {
+	return status.Errorf(codes.Unimplemented, "method SendFiles not implemented")
 }
 
 // UnsafeStorageServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -119,18 +171,67 @@ func (x *storageServiceUploadServer) Recv() (*UploadReq, error) {
 	return m, nil
 }
 
+func _StorageService_GetAllFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(StorageServiceServer).GetAllFiles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/storage.StorageService/GetAllFiles",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(StorageServiceServer).GetAllFiles(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _StorageService_SendFiles_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(empty.Empty)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(StorageServiceServer).SendFiles(m, &storageServiceSendFilesServer{stream})
+}
+
+type StorageService_SendFilesServer interface {
+	Send(*SendFilesResp) error
+	grpc.ServerStream
+}
+
+type storageServiceSendFilesServer struct {
+	grpc.ServerStream
+}
+
+func (x *storageServiceSendFilesServer) Send(m *SendFilesResp) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // StorageService_ServiceDesc is the grpc.ServiceDesc for StorageService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var StorageService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "storage.StorageService",
 	HandlerType: (*StorageServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetAllFiles",
+			Handler:    _StorageService_GetAllFiles_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Upload",
 			Handler:       _StorageService_Upload_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "SendFiles",
+			Handler:       _StorageService_SendFiles_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "proto/storage/storage.proto",

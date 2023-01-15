@@ -1,18 +1,37 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
 package storage;
 option go_package="./storagepb";
 
 service StorageService {
     rpc Upload(stream UploadReq) returns (UploadResp){};
+    rpc GetAllFiles(google.protobuf.Empty) returns (GetAllFilesResp){};
+    rpc SendFiles(google.protobuf.Empty) returns (stream SendFilesResp){};
+}
+
+message File {
+    string name = 1;
+    google.protobuf.Timestamp createdAt = 2;
+    google.protobuf.Timestamp updatedAt = 3;
 }
 
 message UploadReq {
-    string mime = 1;
+    string name = 1;
     bytes chunk = 2;
 }
 
 message UploadResp {
-    string name = 1;
+    string status = 1;
 }
 
+message GetAllFilesResp {
+    repeated File file = 1;
+}
+
+message SendFilesResp {
+    string name = 1;
+    bytes chunk = 2;
+}
